@@ -33,11 +33,12 @@ def structure_text_with_llm(raw_text):
     print("啟動 Gemini 解析藥單資訊...")
     
     # 提示詞 (Prompt) 設計：明確告知需要的 JSON 格式
+   # 提示詞 (Prompt) 設計：明確告知需要的 JSON 格式，並封殺 List
     prompt = f"""
     以下是從藥單上掃描下來的原始文字：
     {raw_text}
     
-    請幫我擷取以下資訊，並嚴格以 JSON 格式輸出：
+    請幫我擷取「第一項」藥物資訊即可，並嚴格以單一 JSON Object (字典) 格式輸出，絕對不要使用陣列 (List/Array) 也就是 [ ] 包覆：
     {{
         "drug_name_en": "藥品英文學名 (Generic Name)。請務必將台灣藥名轉成 openFDA 查得到的英文學名，例如把 '普拿疼' 轉為 'acetaminophen'。",
         "frequency": "服藥頻率 (如：一天三次)",
@@ -48,7 +49,7 @@ def structure_text_with_llm(raw_text):
     """
     
     # 使用 Gemini 1.5 Flash 模型 (速度快、免費額度夠，非常適合專題 Demo)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     
     # 強制 Gemini 直接輸出 JSON 格式 (response_mime_type)
     response = model.generate_content(
@@ -84,7 +85,7 @@ def query_openfda_interactions(drug_name_en):
 # --- 主程式執行區 ---
 if __name__ == "__main__":
     # 請先在資料夾中放一張測試用的藥單照片
-    test_image = "sample_prescription.jpg" 
+    test_image = "sample_prescription.JPG" 
     
     if not os.path.exists(test_image):
         print(f"請準備一張名為 {test_image} 的照片放在同一個資料夾下！")
