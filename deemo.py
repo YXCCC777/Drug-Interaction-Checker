@@ -32,8 +32,7 @@ def structure_text_with_llm(raw_text):
     """步驟 2: 使用 Google Gemini 將 OCR 文字結構化，並翻譯成英文學名"""
     print("啟動 Gemini 解析藥單資訊...")
     
-    # 提示詞 (Prompt) 設計：明確告知需要的 JSON 格式
-   # 提示詞 (Prompt) 設計：明確告知需要的 JSON 格式，並封殺 List
+    # 提示詞 (Prompt) 設計：明確告知需要的 JSON 格式，並封殺 List
     prompt = f"""
     以下是從藥單上掃描下來的原始文字：
     {raw_text}
@@ -48,7 +47,7 @@ def structure_text_with_llm(raw_text):
     只輸出 JSON，不要有其他廢話或 Markdown 標籤。
     """
     
-    # 使用 Gemini 1.5 Flash 模型 (速度快、免費額度夠，非常適合專題 Demo)
+    # 使用 Gemini 2.5 Flash 模型
     model = genai.GenerativeModel('gemini-2.5-flash')
     
     # 強制 Gemini 直接輸出 JSON 格式 (response_mime_type)
@@ -82,6 +81,32 @@ def query_openfda_interactions(drug_name_en):
     else:
         return "openFDA 找不到此藥物或 API 呼叫失敗。"
 
+def translate_interactions_with_llm(drug_name_en, raw_interactions):
+    """步驟 4: 將 openFDA 的英文生硬資料，交給 Gemini 翻譯成白話文"""
+    print("啟動 Gemini 藥師翻譯與摘要系統...")
+    
+    prompt = f"""
+    你現在是一位專業但親切的台灣藥師。
+    以下是從美國 FDA 資料庫查到的關於「{drug_name_en}」的藥物交互作用原始英文資料：
+    ---
+    {raw_interactions}
+    ---
+    請幫我把這段資料翻譯成「一般台灣民眾能輕鬆看懂的繁體中文」，並進行摘要。
+    請務必使用以下格式輸出（使用 Markdown 條列式排版）：
+    
+    ### 🏥 【{drug_name_en}】用藥安全提醒
+    * ⚠️ **主要警告**：(用一句話總結最危險的交互作用)
+    * 💊 **應避免一起服用的藥物或食物**：(列出重點清單)
+    * 👨‍⚕️ **藥師白話建議**：(一般人平常吃這款藥該注意什麼)
+
+    如果原始資料很長，請抓出最常見、最危險的重點即可，語氣要親切好懂。
+    """
+    
+    # 這裡我們不需要限制輸出 JSON，讓它自由發揮排版
+    model = genai.GenerativeModel('gemini-2.5-flash')
+    response = model.generate_content(prompt)
+    return response.text
+
 # --- 主程式執行區 ---
 if __name__ == "__main__":
     # 請先在資料夾中放一張測試用的藥單照片
@@ -93,20 +118,29 @@ if __name__ == "__main__":
         try:
             # 1. OCR 辨識
             raw_text = extract_text_with_vision(test_image)
-            print("\n--- OCR 原始文字 ---")
+            print("\n--- 1. OCR 原始文字 ---")
             print(raw_text)
             
             # 2. LLM 結構化
             structured_data = structure_text_with_llm(raw_text)
-            print("\n--- Gemini 結構化資料 ---")
+            print("\n--- 2. Gemini 結構化資料 ---")
             print(json.dumps(structured_data, indent=4, ensure_ascii=False))
             
             # 3. openFDA 查詢
             drug_en = structured_data.get("drug_name_en", "")
             if drug_en:
                 interactions_info = query_openfda_interactions(drug_en)
-                print("\n--- openFDA 交互作用警告 ---")
-                print(interactions_info)
+                print("\n--- 3. openFDA 原始交互作用警告 (英文) ---")
+                print(interactions_info[:500] + "...\n(原文太長，已截斷顯示)") # 只印出前500字避免洗版
+                
+                # 4. Gemini 白話文翻譯與摘要
+                if "查無" not in interactions_info and "找不到" not in interactions_info:
+                    translated_info = translate_interactions_with_llm(drug_en, interactions_info)
+                    print("\n--- 4. 💡 系統最終輸出：民眾版衛教資訊 ---")
+                    print(translated_info)
+                else:
+                    print("\n--- 4. 💡 系統提示 ---")
+                    print("因為沒有查到詳細的英文資料，略過翻譯步驟。")
                 
         except Exception as e:
             print(f"發生錯誤: {e}")

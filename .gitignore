@@ -1,4 +1,3 @@
 venv/
 .env
 vision_key.json
-*.json
