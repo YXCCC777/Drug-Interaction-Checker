@@ -12,8 +12,8 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 def extract_drugs_from_image(image_path):
-    """步驟 1 & 2 合併：讓 Gemini 直接看圖片並抓出所有藥品"""
-    print("👀 啟動 Gemini 多模態視覺神經網路，直接解析圖片表格...")
+    
+    
     
     img = Image.open(image_path)
     
@@ -50,9 +50,7 @@ def extract_drugs_from_image(image_path):
         raise e
 
 def query_openfda_interactions(drug_name_en):
-    """步驟 3: 將藥名丟給 openFDA 查詢交互作用資訊，並精簡字數"""
-    # 確保這裡的 URL 是乾淨的，沒有混入 Markdown 的超連結符號 []()
-    # 把網址拆成兩半，徹底防止編輯器自動把它變成超連結！
+    
     base_url = "https://api.fda.gov/drug/label.json"
     url = f"{base_url}?search=openfda.generic_name:\"{drug_name_en}\"&limit=1"
     response = requests.get(url)
@@ -84,13 +82,13 @@ def query_openfda_interactions(drug_name_en):
 
 def summarize_all_interactions(interactions_dict):
     """步驟 4：使用自定義固定格式進行總結"""
-    print("\n🧠 [Gemini 啟動] 正在依照您的固定格式整理總結清單...")
+    print("\n [Gemini 啟動] 正在依照您的固定格式整理總結清單...")
     
     # 這裡定義你想要的「固定格式」範本
     my_format_template = """
-    === 💊 [藥物中文名] ([英文學名]) ===
-    * 🛑 【禁忌成分】：(舉例含有此成分食品)
-    * ⚠️ 【結果】：(請用一句話白話解釋後果)
+    ===  [藥物中文名] ([英文學名]) ===
+    *  【禁忌成分】：(舉例含有此成分食品)
+    *  【結果】：(請用一句話白話解釋後果)
     -------------------------------------------
     """
 
@@ -139,30 +137,30 @@ if __name__ == "__main__":
                 drug_tw = drug_info.get("drug_name_tw", "")
                 drug_en = drug_info.get("drug_name_en", "")
                 
-                print(f"\n🔍 正在查詢 FDA [{count}/{len(structured_drugs_list)}]: {drug_tw}...")
+                print(f"\n 正在查詢 FDA [{count}/{len(structured_drugs_list)}]: {drug_tw}...")
 
                 if drug_en:
                     interactions_info = query_openfda_interactions(drug_en)
                     if "查無" not in interactions_info and "找不到" not in interactions_info:
-                        print(f"   ✅ 成功抓取 FDA 資料，已存入暫存區！")
+                        print(f"    成功抓取 FDA 資料，已存入暫存區！")
                         # 找到資料就先存起來，不要翻譯！
                         collected_interactions[drug_tw] = interactions_info 
                     else:
-                        print(f"   💡 系統提示: {interactions_info}")
+                        print(f"    系統提示: {interactions_info}")
                 else:
-                    print(f"   💡 未成功辨識出英文學名。")
+                    print(f"    未成功辨識出英文學名。")
                 
                 count += 1
                 
             # 迴圈跑完後，一次把所有資料送給 Gemini 總結！
             if collected_interactions:
                 print("\n==================================================")
-                print("🚀 FDA 資料收集完畢！準備進行最終統整翻譯...")
+                print(" FDA 資料收集完畢！準備進行最終統整翻譯...")
                 final_summary = summarize_all_interactions(collected_interactions)
-                print("\n✨ 系統最終輸出：民眾版衛教資訊")
+                print("\n 系統最終輸出：民眾版衛教資訊")
                 print(final_summary)
             else:
-                print("\n🎉 太棒了！這張藥單上的藥物，目前沒有在 FDA 查到需要特別注意的交互作用資料。")
+                print("\n無交互作用")
                 
         except Exception as e:
             print(f"發生錯誤: {e}")
