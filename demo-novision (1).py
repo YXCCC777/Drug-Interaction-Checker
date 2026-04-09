@@ -12,19 +12,17 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 def extract_drugs_from_image(image_path):
-    
-    
-    
     img = Image.open(image_path)
     
+    # 🌟 強化版 Prompt：嚴格要求只給「純英文有效成分」
     prompt = """
     這是一張台灣醫療院所開立的藥單照片。請仔細觀察圖片中的「藥品名稱與劑量單位」表格區塊。
     
-    請幫我擷取表格中的**所有**藥品，並嚴格整理成一個 JSON 清單 (JSON List of Objects)。
+    請幫我擷取表格中的**所有**藥品，並嚴格整理成一個 JSON 清單。
     清單中的每個藥品物件需要包含以下欄位：
     {
         "drug_name_tw": "藥品中文或原始名稱（圖片上顯示的名字）",
-        "drug_name_en": "藥品英文學名（Generic Name）。請務必將圖片上的藥名轉成 openFDA 查得到的英文學名",
+        "drug_name_en": "藥物的純粹英文有效成分 (Active Ingredient)。⚠️非常重要：請務必去除所有劑量(如 500mg)、劑型(如 Tablet/Capsule)、鹽類綴詞(如 Hydrochloride/Maleate)，只保留最核心的英文學名單字，否則資料庫會查不到！",
         "frequency": "服用方法（例如：'每日一次'）",
         "quantity": "數量（例如：'1'）",
         "days": "天數（例如：'7'）",
@@ -50,35 +48,49 @@ def extract_drugs_from_image(image_path):
         raise e
 
 def query_openfda_interactions(drug_name_en):
+    # 確保轉成小寫，並去除前後多餘的空白，以符合 openFDA 搜尋習慣
+    clean_drug_name = drug_name_en.strip().lower()
     
-    base_url = "https://api.fda.gov/drug/label.json"
-    url = f"{base_url}?search=openfda.generic_name:\"{drug_name_en}\"&limit=1"
-    response = requests.get(url)
+    base_url = "[https://api.fda.gov/drug/label.json](https://api.fda.gov/drug/label.json)"
+    url = f"{base_url}?search=openfda.generic_name:\"{clean_drug_name}\"&limit=1"
     
-    if response.status_code == 200:
-        data = response.json()
-        try:
+    try:
+        # 加上 timeout 避免網路卡住
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
             results = data.get("results", [])
-            if not results:
-                 return "查無此藥物的 Label 資料。"
-            interactions_raw = results[0].get("drug_interactions", [])
-            if not interactions_raw:
-                return "查無具體的藥物交互作用說明欄位。"
             
+            # 如果 FDA 回傳成功，但裡面沒有結果
+            if not results:
+                 return "查無資料"
+                 
+            # 嘗試抓取交互作用欄位
+            interactions_raw = results[0].get("drug_interactions", [])
+            
+            # 如果這顆藥剛好沒有填寫交互作用
+            if not interactions_raw:
+                return "查無資料"
+            
+            # 成功抓到資料，進行字串整理
             if isinstance(interactions_raw, list):
                 combined_text = "\n".join(interactions_raw)
             else:
                 combined_text = str(interactions_raw)
             
             if len(combined_text) > 1000:
-                return combined_text[:1000] + "\n\n...(原文過長，系統已自動截斷精簡)..."
+                return combined_text[:1000] + "\n\n...(原文過長自動截斷)..."
             
             return combined_text
+            
+        else:
+            # 如果 HTTP 狀態碼不是 200 (例如 404 找不到)
+            return "查無資料"
 
-        except KeyError:
-            return "查無具體的藥物交互作用說明欄位。"
-    else:
-        return f"openFDA 找不到此藥物或 API 呼叫失敗。 (HTTP {response.status_code})"
+    except Exception as e:
+        print(f"    ⚠️ 呼叫 openFDA 時發生錯誤: {e}")
+        return "查無資料"
 
 def summarize_all_interactions(interactions_dict):
     """步驟 4：使用自定義固定格式進行總結"""
@@ -117,8 +129,8 @@ def summarize_all_interactions(interactions_dict):
 
 # --- 主程式執行區 ---
 if __name__ == "__main__":
-    test_image = "sample_prescription2.JPG" 
-    
+    test_image ="test_images/sample1.JPG"
+
     if not os.path.exists(test_image):
         print(f"請準備一張名為 {test_image} 的照片放在專案資料夾下！")
     else:
