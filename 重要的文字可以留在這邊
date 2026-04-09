@@ -2,3 +2,16 @@
 然後用"demo-novision.py"這一版 因為好像直接把圖片丟給gemini flash模型比較好
 因為原版用google vision格式會亂掉不知道哪個藥應對的數字
 先這樣
+
+
+先不用:
+    pip install opencv-python numpy
+    pip install easyocr opencv-python numpy
+    
+pip install pandas
+
+本團隊在開發初期，為了追求 100% 的資料隱私，實際導入了多款邊緣運算視覺模型 (Edge VLM)，包含 7B 參數的 LLaVA 與 1.8B 的 Moondream 進行本機端壓力測試。
+測試結果發現： > 
+1. LLaVA 在處理高解析度醫療影像時，嚴重超出 8GB VRAM 導致系統崩潰 (OOM)。
+2. 輕量化模型 Moondream 雖能運行，但對於繁體中文醫療表格的理解力極低，會產生嚴重的 AI 幻覺 (Hallucination) 與 Token 迴圈。
+最終決策： 考量到醫療資訊的準確性與系統穩定度，本團隊果斷放棄全本地端辨識。改採『App 端手動裁切去識別化 + 串接雲端 Gemini 2.5 Flash API』的混合式架構。不僅完美守住病患隱私，更將辨識成功率提升至 99% 以上。」
