@@ -30,8 +30,17 @@ def load_databases(permit_csv, nhi_csv, appearance_csv):
 def extract_drugs_from_image(image_path):
     print(f"👁️  [AI 視覺辨識] 正在閱讀藥單：{image_path}...")
     model = genai.GenerativeModel('gemini-2.5-flash')
+    
+    # 🌟 這裡換成新的 Prompt，強制 AI 拆分數量資訊
     prompt = """這是一張藥單照片。請擷取所有藥品整理成 JSON。格式：
-    {"nhi_code": "健保代碼", "drug_name_raw": "原始藥名", "search_keyword": "核心藥名", "quantity": "數量"}"""
+    {
+        "nhi_code": "健保代碼", 
+        "drug_name_raw": "原始藥名", 
+        "search_keyword": "核心藥名", 
+        "frequency": "服藥頻率(例如: 每日一次、三餐飯後、每六小時一次等)",
+        "days": "給藥天數(例如: 3天、7天)",
+        "total_amount": "給藥總數量(例如: 21顆、1瓶)"
+    }"""
     
     try:
         response = model.generate_content([prompt, Image.open(image_path)], 
@@ -153,7 +162,7 @@ def batch_translate_fda_warnings(drugs_to_translate):
 # ==========================================
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    IMAGE_PATH = os.path.join(BASE_DIR, "test_images", "sample_prescription1.JPG") 
+    IMAGE_PATH = os.path.join(BASE_DIR, "test_images", "sample_prescription2.JPG") 
     
     PERMIT_CSV = os.path.join(BASE_DIR, "data", "全部藥品許可證資料集.csv")
     NHI_CSV = os.path.join(BASE_DIR, "data", "健保用藥品項查詢檔.csv")
@@ -178,7 +187,11 @@ if __name__ == "__main__":
                     "official_name": info["官方中文名"],
                     "indication": info["適應症"] if len(info["適應症"]) < 40 else info["適應症"][:38] + "...",
                     "pure_ingredient": info["純淨主成分"],
-                    "quantity": drug.get('quantity', '未知數量'),
+                    
+                    "frequency": drug.get('frequency', '未註明'),     # 新增頻率
+                    "days": drug.get('days', '未註明'),               # 新增天數
+                    "total_amount": drug.get('total_amount', '未註明'), # 新增總數量
+                    
                     "img_link": info["外觀連結"],
                     "match_type": info["比對方式"],
                     "fda_result": "無資料" 
@@ -218,7 +231,7 @@ if __name__ == "__main__":
                 print(f"   ► 官方藥名 : {data['official_name']}")
                 print(f"   ► 適應症   : {data['indication']}")
                 print(f"   ► 純成分   : {data['pure_ingredient']}")
-                print(f"   ► 數量     : {data['quantity']}")
+                print(f"   ► 服藥指示 : {data['frequency']} (共 {data['days']}，總計 {data['total_amount']})") # 🌟 組合排版看起來最專業！
                 print(f"   ► 外觀連結 : {data['img_link']}")
                 
                 fda_out = data['fda_result'].replace('\n', '\n     ')
