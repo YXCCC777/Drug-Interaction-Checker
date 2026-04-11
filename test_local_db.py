@@ -132,7 +132,7 @@ def summarize_conflict_with_gemini(fda_text):
 # 主程式執行區：組裝最終報告
 # ==========================================
 if __name__ == "__main__":
-    IMAGE_PATH = "test_images/sample_prescription3.JPG" # 記得確認你的圖片路徑
+    IMAGE_PATH = "test_images/sample2.JPG" # 記得確認你的圖片路徑
     CSV_PATH = "全部藥品許可證資料集.csv"
     
     db_df = load_taiwan_drug_database(CSV_PATH)
