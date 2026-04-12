@@ -130,24 +130,30 @@ def batch_translate_fda_warnings(drugs_to_translate):
     payload = json.dumps(drugs_to_translate, ensure_ascii=False)
     
     prompt = f"""
-    你是一個專業的藥師。我會給你一個 JSON，裡面包含多個藥品的 FDA 交互作用英文文獻。
-    請幫我把它們全部翻譯並摘要成簡單的白話文警告給一般民眾看。
-    
-    【嚴格排版規定】：
-    1. 不要拆分成分與後果，必須將「衝突的成分」與「發生的後果」寫在同一行。
-    2. 請挑選出 3~4 點「最嚴重或最常見」的交互作用就好，不要囉嗦，刪除不重要的細節。
-    3. 每一點的說明請控制在一句話以內。
-    
-    請回傳一個 JSON 陣列，格式如下：
-    [
-        {{
-            "drug_name": "你收到的原藥品名稱",
-            "summary": "⚠️ 與【類鴉片藥物、酒精】併用：會大幅增加呼吸抑制或嗜睡的風險。\n⚠️ 與【部分癲癇藥物】併用：會加速本藥物代謝，導致藥效降低。"
-        }}
-    ]
-    這是要翻譯的資料：
-    {payload}
-    """
+        你是一位具備豐富臨床經驗的專業藥師。我會給你一個 JSON，裡面包含多個藥品的 FDA 英文仿單節錄（可能包含交互作用、警語 Warnings、或用藥前須知 Ask a doctor）。
+
+        請幫我從這些資料中，精準「揪出」與其他藥物併用的衝突、以及重大疾病禁忌，並翻譯摘要成一般台灣長輩也能看懂的白話文。
+
+        【關鍵判斷指示】：
+        請注意！有些成藥（OTC）不會有獨立的交互作用欄位，併用危險會藏在「Warnings」或「Ask a doctor before use」裡面（例如：正在服用阿斯匹靈、抗凝血劑等）。請務必仔細抓出這些隱藏的併用衝突！
+
+        【嚴格排版規定】：
+        1. 不要拆分成分與後果，必須將「衝突的成分或特定疾病」與「發生的後果」寫在同一行。
+        2. 請挑選出 3~4 點「最嚴重或最常見」的交互作用或禁忌就好，不要囉嗦，刪除不重要的細節。
+        3. 每一點的說明請控制在一句話以內。
+        4. 開頭請統一使用「⚠️ 與【xxx】併用」或「⚠️ 【xxx】患者」。
+
+        請回傳一個 JSON 陣列，格式如下：
+        [
+            {{
+                "drug_name": "你收到的原藥品名稱",
+                "summary": "⚠️ 與【阿斯匹靈、抗凝血劑】併用：會大幅增加嚴重胃出血的風險。\n⚠️ 與【類鴉片藥物、酒精】併用：會大幅增加呼吸抑制或嗜睡的風險。\n⚠️ 【胃部疾病、年滿60歲】患者：使用此藥引發嚴重出血的機率較高。"
+            }}
+        ]
+
+        這是要翻譯的資料：
+        {payload}
+        """
     model = genai.GenerativeModel('gemini-2.5-flash')
     try:
         response = model.generate_content(prompt, generation_config=genai.GenerationConfig(response_mime_type="application/json"))
@@ -162,7 +168,7 @@ def batch_translate_fda_warnings(drugs_to_translate):
 # ==========================================
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    IMAGE_PATH = os.path.join(BASE_DIR, "test_images", "sample_prescription2.JPG") 
+    IMAGE_PATH = os.path.join(BASE_DIR, "test_images", "sample1.JPG") 
     
     PERMIT_CSV = os.path.join(BASE_DIR, "data", "全部藥品許可證資料集.csv")
     NHI_CSV = os.path.join(BASE_DIR, "data", "健保用藥品項查詢檔.csv")

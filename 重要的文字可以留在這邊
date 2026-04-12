@@ -43,3 +43,6 @@ test_local_db2 與 test_local_db 差不多運作方式，但我多加了兩個�
     資料庫欄位的部分待定，還不確定哪個欄位要加要留
 
     ***先拿多張藥單(記得先放在test_images裡) 測 test_local_db2 !!
+
+    Carbenoxolone、Eprazinone、Mequitazine、Carbocysteine 等成分美國FDA未收錄，所以才查不到，台美醫療用藥體系的差異導致多種成分無資料
+    等DrugBank通過
