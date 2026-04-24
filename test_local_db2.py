@@ -16,9 +16,12 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 def load_databases(permit_csv, nhi_csv, appearance_csv):
     print(f"📦 [系統啟動] 載入三重交叉資料庫...")
     try:
-        df_permit = pd.read_csv(permit_csv, usecols=['許可證字號', '中文品名', '英文品名', '適應症', '主成分略述'], dtype=str)
+        df_permit = pd.read_csv(permit_csv, usecols=['許可證字號', '中文品名', '英文品名', '適應症', '主成分略述', '劑型'], dtype=str)
         df_nhi = pd.read_csv(nhi_csv, usecols=['藥品代號', '藥品英文名稱', '藥品中文名稱', '成分'], dtype=str)
-        df_appearance = pd.read_csv(appearance_csv, usecols=['許可證字號', '外觀圖檔連結'], dtype=str)
+        
+        # 🌟 修正：把 '外觀圖檔連結' 加回來！
+        df_appearance = pd.read_csv(appearance_csv, usecols=['許可證字號', '顏色', '形狀', '外觀圖檔連結'], dtype=str)
+        
         return df_permit, df_nhi, df_appearance
     except Exception as e:
         print(f"❌ 資料庫載入失敗：{e}")
@@ -51,7 +54,7 @@ def extract_drugs_from_image(image_path):
         return []
 
 # ==========================================
-# 3. 三表關聯搜尋邏輯 (含成分清洗)
+# 3. 三表關聯搜尋邏輯
 # ==========================================
 def search_drug_full_info(df_permit, df_nhi, df_appearance, search_kw, nhi_code):
     target_permit_no = None
@@ -59,7 +62,11 @@ def search_drug_full_info(df_permit, df_nhi, df_appearance, search_kw, nhi_code)
     en_name = ""
     pure_ingredient = "無資料"
     indication = "無資料"
-    img_link = "無外觀圖檔"
+    dosage_form = "未知劑型" 
+    color = ""
+    shape = ""
+    img_link = "無外觀圖檔" # 🌟 補回預設值
+    has_appearance = False 
     match_type = "比對失敗"
     
     # --- 步驟 A：健保碼精準定位 ---
@@ -68,8 +75,6 @@ def search_drug_full_info(df_permit, df_nhi, df_appearance, search_kw, nhi_code)
         if not match_nhi.empty:
             ch_name = str(match_nhi.iloc[0]['藥品中文名稱']).strip()
             en_name = str(match_nhi.iloc[0]['藥品英文名稱']).strip()
-            
-            # 先用正則把健保檔的 5mg 等雜質切掉當備案
             raw_nhi_ing = str(match_nhi.iloc[0]['成分']).strip()
             pure_ingredient = re.sub(r'[0-9\.]+\s*(mg|ml|g|mcg|iu|u|%).*', '', raw_nhi_ing, flags=re.IGNORECASE).strip()
             match_type = "健保碼精準命中"
@@ -84,25 +89,42 @@ def search_drug_full_info(df_permit, df_nhi, df_appearance, search_kw, nhi_code)
             permit_info = match_permit.iloc[0]
             target_permit_no = permit_info['許可證字號']
             indication = str(permit_info['適應症']).strip()
+            dosage_form = str(permit_info['劑型']).strip() 
             
-            # 使用許可證的乾淨成分
             raw_ing = str(permit_info['主成分略述'])
             pure_ingredient = raw_ing.split(';;')[0].split('(')[0].strip()
             ch_name = permit_info['中文品名'] 
             if match_type == "比對失敗":
                 match_type = "藥名模糊搜尋"
             
-            # --- 步驟 C：外觀檔抓圖片 ---
+            # --- 步驟 C：外觀判斷與圖片抓取 ---
             if target_permit_no:
                 match_img = df_appearance[df_appearance['許可證字號'] == target_permit_no]
                 if not match_img.empty:
-                    img_link = str(match_img.iloc[0]['外觀圖檔連結']).strip()
+                    has_appearance = True
+                    img_data = match_img.iloc[0]
+                    
+                    # 抓文字特徵
+                    c = str(img_data['顏色']).strip()
+                    s = str(img_data['形狀']).strip()
+                    color = c if c and c.lower() != 'nan' else "未記錄"
+                    shape = s if s and s.lower() != 'nan' else "未記錄"
+                    
+                    # 🌟 補回：抓圖片連結
+                    raw_link = str(img_data.get('外觀圖檔連結', '')).strip()
+                    if raw_link and raw_link.lower() != 'nan':
+                        img_link = raw_link
 
+    # 🌟 補回："外觀連結" 鍵值
     return {
         "官方中文名": ch_name, 
         "純淨主成分": pure_ingredient,
         "適應症": indication,
-        "外觀連結": img_link,
+        "劑型": dosage_form,         
+        "has_appearance": has_appearance,  
+        "color": color,
+        "shape": shape,
+        "外觀連結": img_link, # 把它交接給主程式
         "比對方式": match_type
     }
 
@@ -197,7 +219,10 @@ if __name__ == "__main__":
                     "frequency": drug.get('frequency', '未註明'),     # 新增頻率
                     "days": drug.get('days', '未註明'),               # 新增天數
                     "total_amount": drug.get('total_amount', '未註明'), # 新增總數量
-                    
+                    "dosage_form": info["劑型"], 
+                    "has_appearance": info["has_appearance"],
+                    "color": info["color"],
+                    "shape": info["shape"],
                     "img_link": info["外觀連結"],
                     "match_type": info["比對方式"],
                     "fda_result": "無資料" 
@@ -227,18 +252,27 @@ if __name__ == "__main__":
                 if name in translations_dict:
                     data["fda_result"] = translations_dict[name]
 
+            
             # 印出最終完美報告
             print("\n" + "="*60)
-            print(" 🏥 藥單最終解析報告 (含外觀辨識) ")
+            print(" 🏥 藥單最終解析報告 (智慧隱藏外觀版) ")
             print("="*60)
             for i, data in enumerate(final_report_data, 1):
+                # 這裡也要記得把 info 裡面的資料接到 report_item (如果之前沒接的話)
+                # 建議直接在上面處理 report_item 的地方加入: 
+                # "dosage_form": info["劑型"], "has_appearance": info["has_appearance"], "color": info["color"], "shape": info["shape"]
+                
                 print(f"💊 藥品 {i}:")
                 print(f"   ► 原藥單名 : {data['raw_name']}")
                 print(f"   ► 官方藥名 : {data['official_name']}")
+                print(f"   ► 劑型     : {data.get('dosage_form', '未記錄')}") # 🌟 順便印出劑型，一看就知道為什麼沒外觀
                 print(f"   ► 適應症   : {data['indication']}")
                 print(f"   ► 純成分   : {data['pure_ingredient']}")
-                print(f"   ► 服藥指示 : {data['frequency']} (共 {data['days']}，總計 {data['total_amount']})") # 🌟 組合排版看起來最專業！
-                print(f"   ► 外觀連結 : {data['img_link']}")
+                print(f"   ► 服藥指示 : {data['frequency']} (共 {data['days']}，總計 {data['total_amount']})")
+                
+                # 🌟 核心邏輯：如果這顆藥有外觀資料，才印出這一行！
+                if data.get('has_appearance', False):
+                    print(f"   ► 外觀特徵 : 顏色 [{data['color']}] / 形狀 [{data['shape']}]")
                 
                 fda_out = data['fda_result'].replace('\n', '\n     ')
                 print(f"   ► FDA資料  : \n     {fda_out}")
