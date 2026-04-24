@@ -168,7 +168,7 @@ def batch_translate_fda_warnings(drugs_to_translate):
 # ==========================================
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    IMAGE_PATH = os.path.join(BASE_DIR, "test_images", "sample1.JPG") 
+    IMAGE_PATH = os.path.join(BASE_DIR, "test_images", "sample7.JPG") 
     
     PERMIT_CSV = os.path.join(BASE_DIR, "data", "全部藥品許可證資料集.csv")
     NHI_CSV = os.path.join(BASE_DIR, "data", "健保用藥品項查詢檔.csv")

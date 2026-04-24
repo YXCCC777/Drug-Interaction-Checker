@@ -1,3 +1,14 @@
 venv/
 .env
 vision_key.json
+
+
+# Django 暫存資料夾
+__pycache__/
+*.pyc
+
+# Django 本機資料庫 (除非你們打算共用同一個 sqlite 檔案，否則建議忽略)
+db.sqlite3
+
+# 資料庫遷移記錄 (選配，初學建議可以先傳，但大型專案通常會過濾)
+# drug_reminders/migrations/00*.py
