@@ -12,3 +12,5 @@ db.sqlite3
 
 # 資料庫遷移記錄 (選配，初學建議可以先傳，但大型專案通常會過濾)
 # drug_reminders/migrations/00*.py
+
+serviceAccountKey.json
