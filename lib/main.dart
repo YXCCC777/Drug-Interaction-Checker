@@ -29,7 +29,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('藥物系統')),
+      appBar: AppBar(title: const Text('系統')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -85,7 +85,7 @@ class RegisterPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('註冊新帳號')),
+      appBar: AppBar(title: const Text('註冊帳號')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -143,7 +143,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   (route) => false
                 );
               },
-              child: const Text('好，去登入'),
+              child: const Text('登入'),
             ),
           ),
         ],
