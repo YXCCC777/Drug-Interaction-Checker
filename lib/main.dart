@@ -29,7 +29,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('系統')),
+      appBar: AppBar(title: const Text('藥物系統')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
